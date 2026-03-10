@@ -33,7 +33,7 @@ Repository = "https://github.com/mariuaas/pilther"
 Issues = "https://github.com/mariuaas/pilther/issues"
 
 [project.optional-dependencies]
-dev = ["build>=1.2", "twine>=5", "pytest>=8"]
+dev = ["build>=1.2", "twine>=5", "pytest>=8", "setuptools>=70.1"]
 
 [project.scripts]
 pilther = "pilther.cli:main"

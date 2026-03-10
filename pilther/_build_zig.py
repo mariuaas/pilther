@@ -23,6 +23,9 @@ def _library_suffix() -> str:
 
 
 def _resolve_zig_command() -> list[str]:
+    if importlib.util.find_spec("ziglang") is not None:
+        return [sys.executable, "-m", "ziglang"]
+
     zig_bin = shutil.which("zig")
     if zig_bin is not None:
         return [zig_bin]
@@ -31,11 +34,8 @@ def _resolve_zig_command() -> list[str]:
     if python_zig_bin is not None:
         return [python_zig_bin]
 
-    if importlib.util.find_spec("ziglang") is not None:
-        return [sys.executable, "-m", "ziglang"]
-
     raise RuntimeError(
-        "No Zig compiler found. Install `zig` on PATH or use build-system dependency `ziglang`."
+        "No Zig compiler found. Install the build-system dependency `ziglang` or provide `zig` on PATH."
     )
 
 
@@ -83,15 +83,18 @@ class build_py(_build_py):
             cmd = [
                 *zig_cmd,
                 "build-lib",
+            ]
+
+            if target_arg is not None:
+                cmd.extend(["-target", target_arg])
+
+            cmd.extend([
                 "-dynamic",
                 "-O",
                 "ReleaseFast",
                 f"-femit-bin={out_file}",
                 str(src_file),
-            ]
-
-            if target_arg is not None:
-                cmd[2:2] = ["-target", target_arg]
+            ])
 
             subprocess.run(cmd, check=True, cwd=project_root, env=env)
 
