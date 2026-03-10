@@ -5,9 +5,14 @@
 
 Fast Pillow dithering filters backed by Zig.
 
-This alpha release provides one filter:
+This alpha release provides these filters:
 
 - Atkinson error diffusion (`pilther.atkinson`)
+- Sierra-3 error diffusion (`pilther.sierra3`)
+- Sierra-2 error diffusion (`pilther.sierra2`)
+- Stucki error diffusion (`pilther.stucki`)
+- Burkes error diffusion (`pilther.burkes`)
+- Blue-noise threshold dithering (`pilther.bluenoise`)
 
 ## Status
 
@@ -39,7 +44,7 @@ uv tool install ziglang
 uv pip install .
 ```
 
-During build/install, setuptools runs a Zig compile step that builds the native shared library for Atkinson dithering.
+During build/install, setuptools runs a Zig compile step that builds the native shared libraries for the Zig-backed diffusion filters.
 
 If you want an editable development install with test tools:
 
@@ -51,7 +56,7 @@ uv pip install -e .[dev]
 
 ```python
 from PIL import Image
-from pilther import atkinson
+from pilther import atkinson, bluenoise, burkes, sierra2, sierra3, stucki
 
 img = Image.open("input.jpg")
 out = atkinson(img)
@@ -61,12 +66,12 @@ out.save("output.png")
 ## Usage (CLI)
 
 ```bash
-uv run pilther input.jpg output.png
+uv run pilther --filter stucki input.jpg output.png
 ```
 
 ## Native build behavior
 
-`pilther` compiles Zig sources in `src/` into platform-specific shared libraries during package build. The build hook prefers a system `zig` binary when available and otherwise falls back to the `ziglang` build dependency.
+`pilther` compiles Zig sources in `src/` into platform-specific shared libraries during package build. The build hook prefers the `ziglang` build dependency and falls back to a system `zig` binary when needed.
 
 This means:
 
@@ -85,7 +90,7 @@ The source distribution includes Zig sources, and wheel builds compile a platfor
 ## Testing
 
 ```bash
-uv run --with pytest --with setuptools pytest -q
+uv run --extra dev pytest -q
 ```
 
 ## License

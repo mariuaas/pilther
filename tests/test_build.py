@@ -92,5 +92,11 @@ def test_build_produces_native_library() -> None:
     cmd._build_zig_shared_libs()
 
     project_root = Path(__file__).resolve().parent.parent
-    expected = project_root / "pilther" / f"_atkinson{_library_suffix()}"
-    assert expected.exists()
+    expected = [
+        project_root / "pilther" / f"_atkinson{_library_suffix()}",
+        project_root / "pilther" / f"_burkes{_library_suffix()}",
+        project_root / "pilther" / f"_sierra2{_library_suffix()}",
+        project_root / "pilther" / f"_sierra3{_library_suffix()}",
+        project_root / "pilther" / f"_stucki{_library_suffix()}",
+    ]
+    assert all(path.exists() for path in expected)
