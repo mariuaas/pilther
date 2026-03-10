@@ -1,0 +1,46 @@
+[build-system]
+requires = ["setuptools>=70.1", "ziglang>=0.15"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pilther"
+version = "0.1.0a1"
+description = "Fast Pillow dithering filters backed by Zig"
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+requires-python = ">=3.10"
+authors = [{ name = "Marius Aasan" }]
+keywords = ["dithering", "image-processing", "pillow", "zig", "graphics"]
+classifiers = [
+	"Development Status :: 3 - Alpha",
+	"Intended Audience :: Developers",
+	"Operating System :: MacOS",
+	"Operating System :: Microsoft :: Windows",
+	"Operating System :: POSIX :: Linux",
+	"Programming Language :: Python :: 3",
+	"Programming Language :: Python :: 3.10",
+	"Programming Language :: Python :: 3.11",
+	"Programming Language :: Python :: 3.12",
+	"Programming Language :: Zig",
+	"Topic :: Multimedia :: Graphics :: Graphics Conversion",
+]
+dependencies = ["pillow>=10", "numpy>=1.26"]
+
+[project.urls]
+Homepage = "https://github.com/mariuaas/pilther"
+Repository = "https://github.com/mariuaas/pilther"
+Issues = "https://github.com/mariuaas/pilther/issues"
+
+[project.optional-dependencies]
+dev = ["build>=1.2", "twine>=5", "pytest>=8"]
+
+[project.scripts]
+pilther = "pilther.cli:main"
+
+[tool.setuptools]
+packages = ["pilther"]
+include-package-data = true
+
+[tool.setuptools.package-data]
+pilther = ["*.so", "*.dylib", "*.dll", "py.typed"]

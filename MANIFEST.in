@@ -1,0 +1,3 @@
+include README.md
+recursive-include src *.zig
+global-exclude *.so *.dylib *.dll
