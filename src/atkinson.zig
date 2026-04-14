@@ -1,6 +1,6 @@
 const std = @import("std");
 
-export fn atkinson_dither(buf: [*]u8, width: c_int, height: c_int) c_int {
+pub fn atkinson_dither(buf: [*]u8, width: c_int, height: c_int) c_int {
     if (width <= 0 or height <= 0) {
         return 2;
     }

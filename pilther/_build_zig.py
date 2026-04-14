@@ -14,6 +14,10 @@ from setuptools.command.bdist_wheel import bdist_wheel as _bdist_wheel
 from setuptools.command.build_py import build_py as _build_py
 
 
+_NATIVE_LIB_BASENAME = "_pilther"
+_NATIVE_LIB_ENTRYPOINT = "pilther.zig"
+
+
 def _library_suffix() -> str:
     if os.name == "nt":
         return ".dll"
@@ -70,33 +74,41 @@ class build_py(_build_py):
         if not src_files:
             raise RuntimeError("No Zig source files found in src/.")
 
+        root_source = src_dir / _NATIVE_LIB_ENTRYPOINT
+        if not root_source.exists():
+            raise RuntimeError(f"Missing Zig entrypoint '{_NATIVE_LIB_ENTRYPOINT}' in src/.")
+
         zig_cmd = _resolve_zig_command()
         target_arg = _zig_target_arg()
         env = os.environ.copy()
         env.setdefault("MACOSX_DEPLOYMENT_TARGET", "11.0")
 
-        for src_file in src_files:
-            out_file = package_dir / f"_{src_file.stem}{_library_suffix()}"
-            if out_file.exists() and out_file.stat().st_mtime >= src_file.stat().st_mtime:
-                continue
+        out_file = package_dir / f"{_NATIVE_LIB_BASENAME}{_library_suffix()}"
+        for legacy_file in package_dir.glob(f"_*{_library_suffix()}"):
+            if legacy_file != out_file:
+                legacy_file.unlink()
 
-            cmd = [
-                *zig_cmd,
-                "build-lib",
-            ]
+        latest_src_mtime = max(src_file.stat().st_mtime for src_file in src_files)
+        if out_file.exists() and out_file.stat().st_mtime >= latest_src_mtime:
+            return
 
-            if target_arg is not None:
-                cmd.extend(["-target", target_arg])
+        cmd = [
+            *zig_cmd,
+            "build-lib",
+        ]
 
-            cmd.extend([
-                "-dynamic",
-                "-O",
-                "ReleaseFast",
-                f"-femit-bin={out_file}",
-                str(src_file),
-            ])
+        if target_arg is not None:
+            cmd.extend(["-target", target_arg])
 
-            subprocess.run(cmd, check=True, cwd=project_root, env=env)
+        cmd.extend([
+            "-dynamic",
+            "-O",
+            "ReleaseFast",
+            f"-femit-bin={out_file}",
+            str(root_source),
+        ])
+
+        subprocess.run(cmd, check=True, cwd=project_root, env=env)
 
 
 class bdist_wheel(_bdist_wheel):

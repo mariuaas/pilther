@@ -4,11 +4,12 @@ from __future__ import annotations
 
 import ctypes
 from functools import lru_cache
+from typing import Callable
 
 import numpy as np
 from PIL import Image
 
-from ._native import load_native_library
+from ._native import NATIVE_LIBRARY_BASENAME, load_native_library
 
 
 @lru_cache(maxsize=None)
@@ -47,3 +48,20 @@ def apply_native_dither(
         raise RuntimeError(msg)
 
     return Image.fromarray(buf)
+
+
+def make_native_lib(symbol_name: str) -> Callable[[], ctypes.CDLL]:
+    @lru_cache(maxsize=None)
+    def _native_lib() -> ctypes.CDLL:
+        return load_configured_library(NATIVE_LIBRARY_BASENAME, symbol_name)
+
+    return _native_lib
+
+
+def run_native_dither(
+    image: Image.Image,
+    native_lib: Callable[[], ctypes.CDLL],
+    symbol_name: str,
+    filter_label: str,
+) -> Image.Image:
+    return apply_native_dither(image, native_lib(), symbol_name, filter_label)

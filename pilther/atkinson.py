@@ -2,27 +2,13 @@
 
 from __future__ import annotations
 
-import ctypes
-from typing import Final
 from PIL import Image
 
-from ._native_diffusion import apply_native_dither, load_configured_library
+from ._native_diffusion import make_native_lib, run_native_dither
 
-_DEF_LIB_BASENAME: Final[str] = "_atkinson"
-_DEF_SYMBOL_NAME: Final[str] = "atkinson_dither"
-_FILTER_LABEL: Final[str] = "Atkinson"
-_LIB: ctypes.CDLL | None = None
-
-
-def _native_lib() -> ctypes.CDLL:
-    global _LIB
-    if _LIB is not None:
-        return _LIB
-
-    _LIB = load_configured_library(_DEF_LIB_BASENAME, _DEF_SYMBOL_NAME)
-    return _LIB
+_native_lib = make_native_lib("atkinson_dither")
 
 
 def atkinson(image: Image.Image) -> Image.Image:
     """Apply Atkinson dithering to a PIL image and return a grayscale result."""
-    return apply_native_dither(image, _native_lib(), _DEF_SYMBOL_NAME, _FILTER_LABEL)
+    return run_native_dither(image, _native_lib, "atkinson_dither", "Atkinson")

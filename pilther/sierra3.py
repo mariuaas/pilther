@@ -2,28 +2,13 @@
 
 from __future__ import annotations
 
-import ctypes
-from typing import Final
-
 from PIL import Image
 
-from ._native_diffusion import apply_native_dither, load_configured_library
+from ._native_diffusion import make_native_lib, run_native_dither
 
-_DEF_LIB_BASENAME: Final[str] = "_sierra3"
-_DEF_SYMBOL_NAME: Final[str] = "sierra3_dither"
-_FILTER_LABEL: Final[str] = "Sierra-3"
-_LIB: ctypes.CDLL | None = None
-
-
-def _native_lib() -> ctypes.CDLL:
-    global _LIB
-    if _LIB is not None:
-        return _LIB
-
-    _LIB = load_configured_library(_DEF_LIB_BASENAME, _DEF_SYMBOL_NAME)
-    return _LIB
+_native_lib = make_native_lib("sierra3_dither")
 
 
 def sierra3(image: Image.Image) -> Image.Image:
     """Apply Sierra-3 dithering to a PIL image and return a grayscale result."""
-    return apply_native_dither(image, _native_lib(), _DEF_SYMBOL_NAME, _FILTER_LABEL)
+    return run_native_dither(image, _native_lib, "sierra3_dither", "Sierra-3")

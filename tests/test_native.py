@@ -6,14 +6,14 @@ import importlib
 import pytest
 from PIL import Image
 
-from pilther._native import load_native_library
+from pilther._native import NATIVE_LIBRARY_BASENAME, load_native_library
 
 FILTER_CASES = [
-    ("atkinson", "_atkinson", "atkinson_dither"),
-    ("sierra3", "_sierra3", "sierra3_dither"),
-    ("sierra2", "_sierra2", "sierra2_dither"),
-    ("stucki", "_stucki", "stucki_dither"),
-    ("burkes", "_burkes", "burkes_dither"),
+    ("atkinson", NATIVE_LIBRARY_BASENAME, "atkinson_dither"),
+    ("sierra3", NATIVE_LIBRARY_BASENAME, "sierra3_dither"),
+    ("sierra2", NATIVE_LIBRARY_BASENAME, "sierra2_dither"),
+    ("stucki", NATIVE_LIBRARY_BASENAME, "stucki_dither"),
+    ("burkes", NATIVE_LIBRARY_BASENAME, "burkes_dither"),
 ]
 
 

@@ -44,7 +44,7 @@ uv tool install ziglang
 uv pip install .
 ```
 
-During build/install, setuptools runs a Zig compile step that builds the native shared libraries for the Zig-backed diffusion filters.
+During build/install, setuptools runs a Zig compile step that builds the native shared library for the Zig-backed diffusion filters.
 
 If you want an editable development install with test tools:
 
@@ -71,13 +71,13 @@ uv run pilther --filter stucki input.jpg output.png
 
 ## Native build behavior
 
-`pilther` compiles Zig sources in `src/` into platform-specific shared libraries during package build. The build hook prefers the `ziglang` build dependency and falls back to a system `zig` binary when needed.
+`pilther` compiles the Zig sources in `src/` into a single platform-specific shared library during package build. The build hook prefers the `ziglang` build dependency and falls back to a system `zig` binary when needed.
 
 This means:
 
 - source builds require Zig at build time
 - built wheels bundle the compiled native library
-- the package can grow to additional filters by adding more `src/*.zig` files
+- the package can grow to additional filters by exporting more symbols from `src/pilther.zig`
 
 ## Build an alpha distribution
 

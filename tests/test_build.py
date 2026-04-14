@@ -9,6 +9,7 @@ import pytest
 from setuptools import Distribution
 
 import pilther._build_zig as build_zig_module
+from pilther._native import NATIVE_LIBRARY_BASENAME
 from pilther._build_zig import _library_suffix, _resolve_zig_command, build_py
 
 
@@ -49,7 +50,9 @@ def test_build_invokes_ziglang_with_target_after_subcommand(
     package_dir.mkdir()
     src_dir.mkdir()
     src_file = src_dir / "atkinson.zig"
-    src_file.write_text("pub export fn noop() void {}\n")
+    src_file.write_text("pub fn noop() void {}\n")
+    root_file = src_dir / "pilther.zig"
+    root_file.write_text("pub fn noop() void {}\n")
 
     monkeypatch.setattr(build_zig_module, "_resolve_zig_command", lambda: [sys.executable, "-m", "ziglang"])
     monkeypatch.setattr(build_zig_module, "_zig_target_arg", lambda: "aarch64-macos.11.0")
@@ -77,8 +80,8 @@ def test_build_invokes_ziglang_with_target_after_subcommand(
         "-dynamic",
         "-O",
         "ReleaseFast",
-        f"-femit-bin={package_dir / ('_atkinson' + _library_suffix())}",
-        str(src_file),
+        f"-femit-bin={package_dir / (NATIVE_LIBRARY_BASENAME + _library_suffix())}",
+        str(root_file),
     ]]
 
 
@@ -92,11 +95,14 @@ def test_build_produces_native_library() -> None:
     cmd._build_zig_shared_libs()
 
     project_root = Path(__file__).resolve().parent.parent
-    expected = [
+    expected = project_root / "pilther" / f"{NATIVE_LIBRARY_BASENAME}{_library_suffix()}"
+    legacy = [
         project_root / "pilther" / f"_atkinson{_library_suffix()}",
         project_root / "pilther" / f"_burkes{_library_suffix()}",
         project_root / "pilther" / f"_sierra2{_library_suffix()}",
         project_root / "pilther" / f"_sierra3{_library_suffix()}",
         project_root / "pilther" / f"_stucki{_library_suffix()}",
     ]
-    assert all(path.exists() for path in expected)
+
+    assert expected.exists()
+    assert all(not path.exists() for path in legacy)

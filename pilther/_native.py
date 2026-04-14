@@ -7,6 +7,10 @@ import os
 import platform
 from functools import lru_cache
 from pathlib import Path
+from typing import Final
+
+
+NATIVE_LIBRARY_BASENAME: Final[str] = "_pilther"
 
 
 def library_suffix() -> str:

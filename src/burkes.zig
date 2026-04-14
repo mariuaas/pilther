@@ -4,7 +4,7 @@ fn diffuse(err_buf: []i16, idx: usize, diff: i16, weight: i16, divisor: i16) voi
     err_buf[idx] += @divTrunc(diff * weight, divisor);
 }
 
-export fn burkes_dither(buf: [*]u8, width: c_int, height: c_int) c_int {
+pub fn burkes_dither(buf: [*]u8, width: c_int, height: c_int) c_int {
     if (width <= 0 or height <= 0) {
         return 2;
     }
