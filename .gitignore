@@ -11,3 +11,5 @@ pilther/*.dll
 
 # Virtual environments
 .venv
+.pytest_cache
+.DS_store

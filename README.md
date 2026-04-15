@@ -13,6 +13,15 @@ This alpha release provides these filters:
 - Stucki error diffusion (`pilther.stucki`)
 - Burkes error diffusion (`pilther.burkes`)
 - Blue-noise threshold dithering (`pilther.bluenoise`)
+- Palette-aware diffusion variants (`pilther.sierra2_palette`, `pilther.atkinson_palette`, etc.)
+
+The Python API also includes early palette utilities for extraction and normalization:
+
+- Palette extraction in RGB or YCoCg (`pilther.extract_palette`)
+- Palette normalization for grayscale and RGB palettes (`pilther.normalize_palette`)
+- Named grayscale and color palettes (`pilther.get_named_palette`, `pilther.list_named_palettes`)
+
+Built-in palette names include grayscale ramps such as `gray4` and `gray32`, plus color presets such as `cga4`, `gameboy4`, `ega16`, `ansi16`, `web216`, and `term256`.
 
 ## Status
 
@@ -56,10 +65,12 @@ uv pip install -e .[dev]
 
 ```python
 from PIL import Image
-from pilther import atkinson, bluenoise, burkes, sierra2, sierra3, stucki
+from pilther import atkinson, extract_palette, sierra2_palette
 
 img = Image.open("input.jpg")
 out = atkinson(img)
+palette = extract_palette(img, 8, method="median_cut", space="rgb")
+sierra = sierra2_palette(img, palette_name="ega16")
 out.save("output.png")
 ```
 
@@ -67,6 +78,23 @@ out.save("output.png")
 
 ```bash
 uv run pilther --filter stucki input.jpg output.png
+```
+
+Palette-aware variants can use either named palettes or extracted palettes:
+
+```bash
+uv run pilther --filter sierra2_palette --palette ega16 input.jpg output.png
+uv run pilther --filter atkinson_palette --extract-colors 8 --palette-method median_cut input.jpg output.png
+```
+
+## Visual Showcase
+
+See [docs/showcase.md](docs/showcase.md) for grayscale and color comparisons on the bundled `baboon`, `pepper`, and `flower` sample images.
+
+Regenerate the gallery assets with:
+
+```bash
+uv run python scripts/generate_showcase.py
 ```
 
 ## Native build behavior
