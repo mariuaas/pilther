@@ -33,18 +33,20 @@ Built-in palette names include grayscale ramps such as `gray4` and `gray32`, plu
 - [uv](https://docs.astral.sh/uv/)
 
 Zig is provided at build time via the `ziglang` build-system dependency.
-If you already have a system `zig`, the build hook will use it first.
+For local development and tests, use the pinned `ziglang==0.15.2` package in the project environment.
 
 ## Development setup (uv)
 
 ```bash
-uv sync
+uv sync --extra dev
 ```
+
+This creates the local `.venv`, installs the test tools, and installs `ziglang==0.15.2` so builds use the same Zig version as packaging.
 
 If you want a user-level Zig binary for local development commands:
 
 ```bash
-uv tool install ziglang
+uv tool install ziglang==0.15.2
 ```
 
 ## Install from source
@@ -99,7 +101,7 @@ uv run python scripts/generate_showcase.py
 
 ## Native build behavior
 
-`pilther` compiles the Zig sources in `src/` into a single platform-specific shared library during package build. The build hook prefers the `ziglang` build dependency and falls back to a system `zig` binary when needed.
+`pilther` compiles the Zig sources in `src/` into a single platform-specific shared library during package build. The build hook prefers the pinned `ziglang==0.15.2` package from the active Python environment and falls back to a system `zig` binary only when `ziglang` is unavailable.
 
 This means:
 

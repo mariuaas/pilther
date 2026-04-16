@@ -1,5 +1,6 @@
 const atkinson = @import("atkinson.zig");
 const burkes = @import("burkes.zig");
+const palette_diffusion = @import("palette_diffusion.zig");
 const sierra2 = @import("sierra2.zig");
 const sierra3 = @import("sierra3.zig");
 const stucki = @import("stucki.zig");
@@ -22,4 +23,24 @@ export fn sierra3_dither(buf: [*]u8, width: c_int, height: c_int) c_int {
 
 export fn stucki_dither(buf: [*]u8, width: c_int, height: c_int) c_int {
     return stucki.stucki_dither(buf, width, height);
+}
+
+export fn atkinson_palette_dither(img_buf: [*]u8, width: c_int, height: c_int, palette_buf: [*]u8, palette_colors: c_int, color_space: c_int) c_int {
+    return palette_diffusion.atkinson_palette_dither(img_buf, width, height, palette_buf, palette_colors, color_space);
+}
+
+export fn sierra2_palette_dither(img_buf: [*]u8, width: c_int, height: c_int, palette_buf: [*]u8, palette_colors: c_int, color_space: c_int) c_int {
+    return palette_diffusion.sierra2_palette_dither(img_buf, width, height, palette_buf, palette_colors, color_space);
+}
+
+export fn sierra3_palette_dither(img_buf: [*]u8, width: c_int, height: c_int, palette_buf: [*]u8, palette_colors: c_int, color_space: c_int) c_int {
+    return palette_diffusion.sierra3_palette_dither(img_buf, width, height, palette_buf, palette_colors, color_space);
+}
+
+export fn stucki_palette_dither(img_buf: [*]u8, width: c_int, height: c_int, palette_buf: [*]u8, palette_colors: c_int, color_space: c_int) c_int {
+    return palette_diffusion.stucki_palette_dither(img_buf, width, height, palette_buf, palette_colors, color_space);
+}
+
+export fn burkes_palette_dither(img_buf: [*]u8, width: c_int, height: c_int, palette_buf: [*]u8, palette_colors: c_int, color_space: c_int) c_int {
+    return palette_diffusion.burkes_palette_dither(img_buf, width, height, palette_buf, palette_colors, color_space);
 }

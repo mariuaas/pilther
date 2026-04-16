@@ -1,10 +1,10 @@
 [build-system]
-requires = ["setuptools>=70.1", "ziglang>=0.15.2"]
+requires = ["setuptools>=70.1", "ziglang==0.15.2"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "pilther"
-version = "0.1.0a4"
+version = "0.1.0a5"
 description = "Fast Pillow dithering filters backed by Zig"
 readme = "README.md"
 license = "MIT"
@@ -33,7 +33,7 @@ Repository = "https://github.com/mariuaas/pilther"
 Issues = "https://github.com/mariuaas/pilther/issues"
 
 [project.optional-dependencies]
-dev = ["build>=1.2", "twine>=5", "pytest>=8", "setuptools>=70.1"]
+dev = ["build>=1.2", "twine>=5", "pytest>=8", "setuptools>=70.1", "ziglang==0.15.2"]
 
 [project.scripts]
 pilther = "pilther.cli:main"

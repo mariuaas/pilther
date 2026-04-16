@@ -1,70 +1,22 @@
-"""Palette-aware Python error-diffusion filters."""
+"""Palette-aware error-diffusion filters backed by Zig."""
 
 from __future__ import annotations
 
-from typing import Final, Sequence
+from typing import Sequence
 
 import numpy as np
 from numpy.typing import NDArray
 from PIL import Image
 
-from .colorspace import convert_color_space
+from ._native_palette_diffusion import make_native_palette_lib, run_native_palette_dither
+from .colorspace import normalize_color_space
 from .palette import Palette, PaletteMethod, resolve_palette
 
-KernelOffsets = Sequence[tuple[int, int, int]]
-
-_ATKINSON_OFFSETS: Final[tuple[tuple[int, int, int], ...]] = (
-    (1, 0, 1),
-    (2, 0, 1),
-    (-1, 1, 1),
-    (0, 1, 1),
-    (1, 1, 1),
-    (0, 2, 1),
-)
-_SIERRA2_OFFSETS: Final[tuple[tuple[int, int, int], ...]] = (
-    (1, 0, 4),
-    (2, 0, 3),
-    (-2, 1, 1),
-    (-1, 1, 2),
-    (0, 1, 3),
-    (1, 1, 2),
-    (2, 1, 1),
-)
-_SIERRA3_OFFSETS: Final[tuple[tuple[int, int, int], ...]] = (
-    (1, 0, 5),
-    (2, 0, 3),
-    (-2, 1, 2),
-    (-1, 1, 4),
-    (0, 1, 5),
-    (1, 1, 4),
-    (2, 1, 2),
-    (-1, 2, 2),
-    (0, 2, 3),
-    (1, 2, 2),
-)
-_STUCKI_OFFSETS: Final[tuple[tuple[int, int, int], ...]] = (
-    (1, 0, 8),
-    (2, 0, 4),
-    (-2, 1, 2),
-    (-1, 1, 4),
-    (0, 1, 8),
-    (1, 1, 4),
-    (2, 1, 2),
-    (-2, 2, 1),
-    (-1, 2, 2),
-    (0, 2, 4),
-    (1, 2, 2),
-    (2, 2, 1),
-)
-_BURKES_OFFSETS: Final[tuple[tuple[int, int, int], ...]] = (
-    (1, 0, 8),
-    (2, 0, 4),
-    (-2, 1, 2),
-    (-1, 1, 4),
-    (0, 1, 8),
-    (1, 1, 4),
-    (2, 1, 2),
-)
+_ATKINSON_NATIVE_LIB = make_native_palette_lib("atkinson_palette_dither")
+_SIERRA2_NATIVE_LIB = make_native_palette_lib("sierra2_palette_dither")
+_SIERRA3_NATIVE_LIB = make_native_palette_lib("sierra3_palette_dither")
+_STUCKI_NATIVE_LIB = make_native_palette_lib("stucki_palette_dither")
+_BURKES_NATIVE_LIB = make_native_palette_lib("burkes_palette_dither")
 
 
 def _resolve_filter_palette(
@@ -91,58 +43,35 @@ def _resolve_filter_palette(
     )
 
 
-def _nearest_palette_color(
-    rgb_color: NDArray[np.float32],
-    palette_rgb: NDArray[np.float32],
-    palette_space_values: NDArray[np.float32],
-    palette_space: str,
-) -> NDArray[np.float32]:
-    color_space_value = convert_color_space(rgb_color[None, :], palette_space)[0]
-    distances = np.sum((palette_space_values - color_space_value) ** 2, axis=1)
-    return palette_rgb[int(np.argmin(distances))]
-
-
-def palette_diffuse(
+def _run_palette_dither(
     image: Image.Image,
-    offsets: KernelOffsets,
-    divisor: int,
     *,
+    native_lib,
+    symbol_name: str,
+    filter_label: str,
     palette: Sequence[int] | Sequence[Sequence[int]] | NDArray[np.generic] | Palette | None = None,
     palette_name: str | None = None,
     extract_colors: int | None = None,
     palette_method: PaletteMethod = "median_cut",
     palette_space: str = "rgb",
 ) -> Image.Image:
+    normalized_space = normalize_color_space(palette_space)
     resolved_palette = _resolve_filter_palette(
         image,
         palette=palette,
         palette_name=palette_name,
         extract_colors=extract_colors,
         palette_method=palette_method,
-        palette_space=palette_space,
+        palette_space=normalized_space,
     )
-
-    src = np.asarray(image.convert("RGB"), dtype=np.float32)
-    err = np.zeros_like(src, dtype=np.float32)
-    out = np.empty_like(src, dtype=np.uint8)
-    palette_rgb = resolved_palette.colors.astype(np.float32)
-    palette_space_values = convert_color_space(palette_rgb, palette_space)
-    height, width, _ = src.shape
-
-    for y in range(height):
-        for x in range(width):
-            adjusted = np.clip(src[y, x] + err[y, x], 0.0, 255.0)
-            chosen = _nearest_palette_color(adjusted, palette_rgb, palette_space_values, palette_space)
-            out[y, x] = chosen.astype(np.uint8)
-            diff = adjusted - chosen
-
-            for dx, dy, weight in offsets:
-                nx = x + dx
-                ny = y + dy
-                if 0 <= nx < width and 0 <= ny < height:
-                    err[ny, nx] += (diff * weight) / divisor
-
-    return Image.fromarray(out, mode="RGB")
+    return run_native_palette_dither(
+        image,
+        resolved_palette.colors,
+        native_lib,
+        symbol_name,
+        filter_label,
+        normalized_space,
+    )
 
 
 def atkinson_palette(
@@ -154,10 +83,11 @@ def atkinson_palette(
     palette_method: PaletteMethod = "median_cut",
     palette_space: str = "rgb",
 ) -> Image.Image:
-    return palette_diffuse(
+    return _run_palette_dither(
         image,
-        _ATKINSON_OFFSETS,
-        8,
+        native_lib=_ATKINSON_NATIVE_LIB,
+        symbol_name="atkinson_palette_dither",
+        filter_label="Atkinson",
         palette=palette,
         palette_name=palette_name,
         extract_colors=extract_colors,
@@ -175,10 +105,11 @@ def sierra2_palette(
     palette_method: PaletteMethod = "median_cut",
     palette_space: str = "rgb",
 ) -> Image.Image:
-    return palette_diffuse(
+    return _run_palette_dither(
         image,
-        _SIERRA2_OFFSETS,
-        16,
+        native_lib=_SIERRA2_NATIVE_LIB,
+        symbol_name="sierra2_palette_dither",
+        filter_label="Sierra-2",
         palette=palette,
         palette_name=palette_name,
         extract_colors=extract_colors,
@@ -196,10 +127,11 @@ def sierra3_palette(
     palette_method: PaletteMethod = "median_cut",
     palette_space: str = "rgb",
 ) -> Image.Image:
-    return palette_diffuse(
+    return _run_palette_dither(
         image,
-        _SIERRA3_OFFSETS,
-        32,
+        native_lib=_SIERRA3_NATIVE_LIB,
+        symbol_name="sierra3_palette_dither",
+        filter_label="Sierra-3",
         palette=palette,
         palette_name=palette_name,
         extract_colors=extract_colors,
@@ -217,10 +149,11 @@ def stucki_palette(
     palette_method: PaletteMethod = "median_cut",
     palette_space: str = "rgb",
 ) -> Image.Image:
-    return palette_diffuse(
+    return _run_palette_dither(
         image,
-        _STUCKI_OFFSETS,
-        42,
+        native_lib=_STUCKI_NATIVE_LIB,
+        symbol_name="stucki_palette_dither",
+        filter_label="Stucki",
         palette=palette,
         palette_name=palette_name,
         extract_colors=extract_colors,
@@ -238,10 +171,11 @@ def burkes_palette(
     palette_method: PaletteMethod = "median_cut",
     palette_space: str = "rgb",
 ) -> Image.Image:
-    return palette_diffuse(
+    return _run_palette_dither(
         image,
-        _BURKES_OFFSETS,
-        32,
+        native_lib=_BURKES_NATIVE_LIB,
+        symbol_name="burkes_palette_dither",
+        filter_label="Burkes",
         palette=palette,
         palette_name=palette_name,
         extract_colors=extract_colors,
