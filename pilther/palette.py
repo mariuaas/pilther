@@ -9,7 +9,7 @@ import numpy as np
 from numpy.typing import NDArray
 from PIL import Image
 
-from .colorspace import convert_color_space, normalize_color_space
+from .colorspace import ColorSpace, convert_color_space, normalize_color_space
 
 PaletteMethod = str
 _SUPPORTED_METHODS = {"median_cut", "mean_variance_cut", "pca_cut"}
@@ -171,7 +171,7 @@ def extract_palette(
     colors: int,
     *,
     method: PaletteMethod = "median_cut",
-    space: str = "rgb",
+    space: ColorSpace | str = ColorSpace.RGB,
 ) -> Palette:
     if colors <= 0:
         raise ValueError("colors must be a positive integer")
@@ -199,7 +199,7 @@ def resolve_palette(
     image: Image.Image | None = None,
     colors: int | None = None,
     method: PaletteMethod = "median_cut",
-    space: str = "rgb",
+    space: ColorSpace | str = ColorSpace.RGB,
     name: str | None = None,
 ) -> Palette:
     if palette is not None:

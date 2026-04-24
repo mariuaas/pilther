@@ -1,46 +1,44 @@
 from __future__ import annotations
 
 import ctypes
-import importlib
 
 import pytest
 from PIL import Image
 
 from pilther._native import NATIVE_LIBRARY_BASENAME, load_native_library
+from pilther.dither import Algorithm, _BINARY_FILTERS, atkinson, burkes, sierra2, sierra3, stucki
 
 FILTER_CASES = [
-    ("atkinson", NATIVE_LIBRARY_BASENAME, "atkinson_dither"),
-    ("sierra3", NATIVE_LIBRARY_BASENAME, "sierra3_dither"),
-    ("sierra2", NATIVE_LIBRARY_BASENAME, "sierra2_dither"),
-    ("stucki", NATIVE_LIBRARY_BASENAME, "stucki_dither"),
-    ("burkes", NATIVE_LIBRARY_BASENAME, "burkes_dither"),
+    (Algorithm.ATKINSON, atkinson, NATIVE_LIBRARY_BASENAME, "atkinson_dither"),
+    (Algorithm.SIERRA3, sierra3, NATIVE_LIBRARY_BASENAME, "sierra3_dither"),
+    (Algorithm.SIERRA2, sierra2, NATIVE_LIBRARY_BASENAME, "sierra2_dither"),
+    (Algorithm.STUCKI, stucki, NATIVE_LIBRARY_BASENAME, "stucki_dither"),
+    (Algorithm.BURKES, burkes, NATIVE_LIBRARY_BASENAME, "burkes_dither"),
 ]
 
 
-@pytest.mark.parametrize(("_module_name", "basename", "_symbol_name"), FILTER_CASES)
-def test_native_library_loads(_module_name: str, basename: str, _symbol_name: str) -> None:
+@pytest.mark.parametrize(("_algorithm", "_func", "basename", "_symbol_name"), FILTER_CASES)
+def test_native_library_loads(_algorithm: Algorithm, _func, basename: str, _symbol_name: str) -> None:
     lib = load_native_library(basename)
     assert isinstance(lib, ctypes.CDLL)
 
 
-@pytest.mark.parametrize(("module_name", "_basename", "symbol_name"), FILTER_CASES)
-def test_native_function_signature_is_set(module_name: str, _basename: str, symbol_name: str) -> None:
-    module = importlib.import_module(f"pilther.{module_name}")
-    lib = module._native_lib()
+@pytest.mark.parametrize(("algorithm", "_func", "_basename", "symbol_name"), FILTER_CASES)
+def test_native_function_signature_is_set(algorithm: Algorithm, _func, _basename: str, symbol_name: str) -> None:
+    lib = _BINARY_FILTERS[algorithm][0]()
     func = getattr(lib, symbol_name)
     assert func.argtypes is not None
     assert func.restype == ctypes.c_int
 
 
-@pytest.mark.parametrize(("module_name", "_basename", "symbol_name"), FILTER_CASES)
+@pytest.mark.parametrize(("algorithm", "func", "_basename", "symbol_name"), FILTER_CASES)
 def test_raises_on_native_error_status(
     monkeypatch: pytest.MonkeyPatch,
-    module_name: str,
+    algorithm: Algorithm,
+    func,
     _basename: str,
     symbol_name: str,
 ) -> None:
-    module = importlib.import_module(f"pilther.{module_name}")
-
     class _FakeLib:
         def __getattr__(self, name: str):
             if name != symbol_name:
@@ -51,7 +49,11 @@ def test_raises_on_native_error_status(
 
             return _raise
 
-    monkeypatch.setattr(module, "_native_lib", lambda: _FakeLib())
+    monkeypatch.setitem(
+        _BINARY_FILTERS,
+        algorithm,
+        (lambda: _FakeLib(), symbol_name, _BINARY_FILTERS[algorithm][2]),
+    )
 
     with pytest.raises(RuntimeError, match="allocation error"):
-        getattr(module, module_name)(Image.new("L", (1, 1), 0))
+        func(Image.new("L", (1, 1), 0))

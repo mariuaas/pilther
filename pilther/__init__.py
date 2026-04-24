@@ -1,8 +1,22 @@
 """pilther: fast Pillow dithering filters backed by Zig."""
 
-from .atkinson import atkinson
 from .bluenoise import bluenoise
-from .burkes import burkes
+from .colorspace import ColorSpace
+from .dither import (
+	Algorithm,
+	Quantizer,
+	atkinson,
+	atkinson_palette,
+	burkes,
+	burkes_palette,
+	dither,
+	sierra2,
+	sierra2_palette,
+	sierra3,
+	sierra3_palette,
+	stucki,
+	stucki_palette,
+)
 from .palette import (
 	Palette,
 	extract_palette,
@@ -11,24 +25,18 @@ from .palette import (
 	normalize_palette,
 	resolve_palette,
 )
-from .palette_diffusion import (
-	atkinson_palette,
-	burkes_palette,
-	sierra2_palette,
-	sierra3_palette,
-	stucki_palette,
-)
-from .sierra2 import sierra2
-from .sierra3 import sierra3
-from .stucki import stucki
 
 __all__ = [
 	"Palette",
+	"Algorithm",
+	"ColorSpace",
+	"Quantizer",
 	"atkinson",
 	"atkinson_palette",
 	"bluenoise",
 	"burkes",
 	"burkes_palette",
+	"dither",
 	"extract_palette",
 	"get_named_palette",
 	"list_named_palettes",

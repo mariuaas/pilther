@@ -2,46 +2,17 @@ from __future__ import annotations
 
 import argparse
 from pathlib import Path
-from typing import Callable
 
 from PIL import Image
 
-from .atkinson import atkinson
 from .bluenoise import bluenoise
-from .burkes import burkes
+from .colorspace import ColorSpace
+from .dither import Algorithm, Quantizer, dither
 from .palette import list_named_palettes
-from .palette_diffusion import (
-    atkinson_palette,
-    burkes_palette,
-    sierra2_palette,
-    sierra3_palette,
-    stucki_palette,
-)
-from .sierra2 import sierra2
-from .sierra3 import sierra3
-from .stucki import stucki
 
-FilterFunc = Callable[[Image.Image], Image.Image]
-PaletteFilterFunc = Callable[..., Image.Image]
-
-FILTERS: dict[str, FilterFunc] = {
-    "atkinson": atkinson,
-    "bluenoise": bluenoise,
-    "burkes": burkes,
-    "sierra2": sierra2,
-    "sierra3": sierra3,
-    "stucki": stucki,
-}
-
-PALETTE_FILTERS: dict[str, PaletteFilterFunc] = {
-    "atkinson_palette": atkinson_palette,
-    "burkes_palette": burkes_palette,
-    "sierra2_palette": sierra2_palette,
-    "sierra3_palette": sierra3_palette,
-    "stucki_palette": stucki_palette,
-}
-
-ALL_FILTERS = {**FILTERS, **PALETTE_FILTERS}
+ALGORITHMS = tuple(member.value for member in Algorithm)
+QUANTIZERS = (Quantizer.THRESHOLD.value, Quantizer.PALETTE.value, "bluenoise")
+COLOR_SPACES = tuple(member.value for member in ColorSpace)
 
 
 def main() -> None:
@@ -50,11 +21,16 @@ def main() -> None:
         description="Apply a dithering filter to an input image.",
     )
     parser.add_argument(
-        "--filter",
-        dest="filter_name",
-        choices=tuple(ALL_FILTERS),
-        default="atkinson",
-        help="Dithering filter to apply (default: %(default)s)",
+        "--algorithm",
+        choices=ALGORITHMS,
+        default=Algorithm.ATKINSON.value,
+        help="Diffusion kernel to apply (default: %(default)s)",
+    )
+    parser.add_argument(
+        "--quantizer",
+        choices=QUANTIZERS,
+        default=Quantizer.THRESHOLD.value,
+        help="Quantization strategy to apply (default: %(default)s)",
     )
     parser.add_argument(
         "--palette",
@@ -78,8 +54,8 @@ def main() -> None:
     parser.add_argument(
         "--palette-space",
         dest="palette_space",
-        choices=("rgb", "ycocg"),
-        default="rgb",
+        choices=COLOR_SPACES,
+        default=ColorSpace.RGB.value,
         help="Color space for palette extraction and matching (default: %(default)s).",
     )
     parser.add_argument("input", type=Path, help="Input image path")
@@ -87,18 +63,24 @@ def main() -> None:
     args = parser.parse_args()
 
     with Image.open(args.input) as img:
-        if args.filter_name in PALETTE_FILTERS:
-            out = PALETTE_FILTERS[args.filter_name](
+        if args.quantizer == "bluenoise":
+            if args.palette_name is not None or args.extract_colors is not None:
+                parser.error("--palette and --extract-colors are only valid for palette quantization.")
+            out = bluenoise(img)
+        else:
+            quantizer = Quantizer(args.quantizer)
+            if quantizer is Quantizer.THRESHOLD and (args.palette_name is not None or args.extract_colors is not None):
+                parser.error("--palette and --extract-colors are only valid for palette quantization.")
+
+            out = dither(
                 img,
+                algorithm=Algorithm(args.algorithm),
+                quantizer=quantizer,
                 palette_name=args.palette_name,
                 extract_colors=args.extract_colors,
                 palette_method=args.palette_method,
-                palette_space=args.palette_space,
+                color_space=ColorSpace(args.palette_space),
             )
-        else:
-            if args.palette_name is not None or args.extract_colors is not None:
-                parser.error("--palette and --extract-colors are only valid for palette-aware filters.")
-            out = FILTERS[args.filter_name](img)
     out.save(args.output)
 
 

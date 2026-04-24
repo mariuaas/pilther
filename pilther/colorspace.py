@@ -2,12 +2,27 @@
 
 from __future__ import annotations
 
-from typing import Literal
+from enum import Enum
 
 import numpy as np
 from numpy.typing import NDArray
 
-ColorSpace = Literal["rgb", "ycocg"]
+
+class ColorSpace(str, Enum):
+    GRAYSCALE = "grayscale"
+    RGB = "rgb"
+    YCOCG = "ycocg"
+
+
+_COLOR_SPACE_ALIASES = {
+    "g": ColorSpace.GRAYSCALE,
+    "gray": ColorSpace.GRAYSCALE,
+    "greyscale": ColorSpace.GRAYSCALE,
+    "grayscale": ColorSpace.GRAYSCALE,
+    "l": ColorSpace.GRAYSCALE,
+    "rgb": ColorSpace.RGB,
+    "ycocg": ColorSpace.YCOCG,
+}
 
 
 def _as_float_rgb(values: NDArray[np.generic]) -> NDArray[np.float32]:
@@ -17,11 +32,23 @@ def _as_float_rgb(values: NDArray[np.generic]) -> NDArray[np.float32]:
     return arr
 
 
-def normalize_color_space(space: str) -> ColorSpace:
+def normalize_color_space(space: ColorSpace | str) -> ColorSpace:
+    if isinstance(space, ColorSpace):
+        return space
+
     normalized = space.strip().lower()
-    if normalized not in {"rgb", "ycocg"}:
-        raise ValueError(f"Unsupported color space '{space}'. Expected 'rgb' or 'ycocg'.")
-    return normalized
+    try:
+        return _COLOR_SPACE_ALIASES[normalized]
+    except KeyError as exc:
+        raise ValueError(
+            f"Unsupported color space '{space}'. Expected one of: grayscale, rgb, ycocg."
+        ) from exc
+
+
+def rgb_to_grayscale(values: NDArray[np.generic]) -> NDArray[np.float32]:
+    rgb = _as_float_rgb(values)
+    grayscale = (0.299 * rgb[..., 0]) + (0.587 * rgb[..., 1]) + (0.114 * rgb[..., 2])
+    return np.repeat(grayscale[..., np.newaxis], 3, axis=-1).astype(np.float32, copy=False)
 
 
 def rgb_to_ycocg(values: NDArray[np.generic]) -> NDArray[np.float32]:
@@ -52,9 +79,11 @@ def ycocg_to_rgb(values: NDArray[np.generic]) -> NDArray[np.float32]:
     return np.stack((r, g, b), axis=-1).astype(np.float32, copy=False)
 
 
-def convert_color_space(values: NDArray[np.generic], space: str) -> NDArray[np.float32]:
+def convert_color_space(values: NDArray[np.generic], space: ColorSpace | str) -> NDArray[np.float32]:
     normalized = normalize_color_space(space)
     rgb = _as_float_rgb(values)
-    if normalized == "rgb":
+    if normalized is ColorSpace.RGB:
         return rgb
+    if normalized is ColorSpace.GRAYSCALE:
+        return rgb_to_grayscale(rgb)
     return rgb_to_ycocg(rgb)

@@ -7,17 +7,21 @@ Fast Pillow dithering filters backed by Zig.
 
 This alpha release provides these filters:
 
-- Atkinson error diffusion (`pilther.atkinson`)
-- Sierra-3 error diffusion (`pilther.sierra3`)
-- Sierra-2 error diffusion (`pilther.sierra2`)
-- Stucki error diffusion (`pilther.stucki`)
-- Burkes error diffusion (`pilther.burkes`)
+- Atkinson, Sierra-3, Sierra-2, Stucki, and Burkes diffusion kernels
 - Blue-noise threshold dithering (`pilther.bluenoise`)
-- Palette-aware diffusion variants (`pilther.sierra2_palette`, `pilther.atkinson_palette`, etc.)
 
-The Python API also includes early palette utilities for extraction and normalization:
+The canonical diffusion API is organized by kernel plus quantizer:
 
-- Palette extraction in RGB or YCoCg (`pilther.extract_palette`)
+- Kernels: `pilther.Algorithm`
+- Quantizers: `pilther.Quantizer`
+- Color spaces: `pilther.ColorSpace`
+- Dispatcher: `pilther.dither(...)`
+
+Legacy convenience wrappers such as `pilther.atkinson` and `pilther.sierra2_palette` still exist, but they delegate to the canonical model.
+
+The Python API also includes palette utilities for extraction and normalization:
+
+- Palette extraction in grayscale, RGB, or YCoCg (`pilther.extract_palette`)
 - Palette normalization for grayscale and RGB palettes (`pilther.normalize_palette`)
 - Named grayscale and color palettes (`pilther.get_named_palette`, `pilther.list_named_palettes`)
 
@@ -67,26 +71,32 @@ uv pip install -e .[dev]
 
 ```python
 from PIL import Image
-from pilther import atkinson, extract_palette, sierra2_palette
+from pilther import Algorithm, ColorSpace, Quantizer, dither, extract_palette
 
 img = Image.open("input.jpg")
-out = atkinson(img)
-palette = extract_palette(img, 8, method="median_cut", space="rgb")
-sierra = sierra2_palette(img, palette_name="ega16")
+out = dither(img, algorithm=Algorithm.ATKINSON)
+palette = extract_palette(img, 8, method="median_cut", space=ColorSpace.RGB)
+sierra = dither(
+	img,
+	algorithm=Algorithm.SIERRA2,
+	quantizer=Quantizer.PALETTE,
+	palette_name="ega16",
+	color_space=ColorSpace.RGB,
+)
 out.save("output.png")
 ```
 
 ## Usage (CLI)
 
 ```bash
-uv run pilther --filter stucki input.jpg output.png
+uv run pilther --algorithm stucki input.jpg output.png
 ```
 
-Palette-aware variants can use either named palettes or extracted palettes:
+Palette quantization can use either named palettes or extracted palettes:
 
 ```bash
-uv run pilther --filter sierra2_palette --palette ega16 input.jpg output.png
-uv run pilther --filter atkinson_palette --extract-colors 8 --palette-method median_cut input.jpg output.png
+uv run pilther --algorithm sierra2 --quantizer palette --palette ega16 input.jpg output.png
+uv run pilther --algorithm atkinson --quantizer palette --extract-colors 8 --palette-method median_cut input.jpg output.png
 ```
 
 ## Visual Showcase

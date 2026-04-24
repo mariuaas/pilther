@@ -1,29 +1,13 @@
 const std = @import("std");
+const color = @import("color.zig");
+const kernel_defs = @import("kernel.zig");
 
-const ColorSpace = enum(c_int) {
-    rgb = 0,
-    ycocg = 1,
-};
+const ColorSpace = color.ColorSpace;
+const DiffusionStep = kernel_defs.DiffusionStep;
+const Kernel = kernel_defs.Kernel;
 
-const KernelKind = enum {
-    atkinson,
-    sierra2,
-    sierra3,
-    stucki,
-    burkes,
-};
-
-const Rgb = struct {
-    r: f32,
-    g: f32,
-    b: f32,
-};
-
-const WorkingColor = struct {
-    c0: f32,
-    c1: f32,
-    c2: f32,
-};
+const Rgb = color.Rgb;
+const WorkingColor = color.WorkingColor;
 
 const PaletteData = struct {
     rgb: []Rgb,
@@ -44,7 +28,7 @@ const PaletteData = struct {
                 .b = @as(f32, @floatFromInt(palette_buf[base + 2])),
             };
             rgb[index] = rgb_color;
-            space[index] = toWorkingColor(rgb_color, color_space);
+            space[index] = color.toWorkingColor(rgb_color, color_space);
         }
 
         return .{
@@ -115,7 +99,7 @@ pub fn burkes_palette_dither(img_buf: [*]u8, width: c_int, height: c_int, palett
     return palette_dither(img_buf, width, height, palette_buf, palette_colors, color_space, .burkes);
 }
 
-fn palette_dither(img_buf: [*]u8, width: c_int, height: c_int, palette_buf: [*]u8, palette_colors: c_int, color_space_raw: c_int, kernel: KernelKind) c_int {
+fn palette_dither(img_buf: [*]u8, width: c_int, height: c_int, palette_buf: [*]u8, palette_colors: c_int, color_space_raw: c_int, kernel: Kernel) c_int {
     if (width <= 0 or height <= 0) {
         return 2;
     }
@@ -135,7 +119,7 @@ fn palette_dither(img_buf: [*]u8, width: c_int, height: c_int, palette_buf: [*]u
     var palette = PaletteData.init(allocator, palette_buf, palette_len, color_space) catch return 1;
     defer palette.deinit(allocator);
 
-    var err_ring = ColorErrorRing.init(allocator, w, kernelDepth(kernel)) catch return 1;
+    var err_ring = ColorErrorRing.init(allocator, w, kernel_defs.depth(kernel)) catch return 1;
     defer err_ring.deinit();
 
     for (0..h) |y| {
@@ -144,7 +128,7 @@ fn palette_dither(img_buf: [*]u8, width: c_int, height: c_int, palette_buf: [*]u
 
         for (0..w) |x| {
             const idx = (y * w + x) * 3;
-            const adjusted = clampRgb(Rgb{
+            const adjusted = color.clampRgb(Rgb{
                 .r = @as(f32, @floatFromInt(img_buf[idx])) + current[x].r,
                 .g = @as(f32, @floatFromInt(img_buf[idx + 1])) + current[x].g,
                 .b = @as(f32, @floatFromInt(img_buf[idx + 2])) + current[x].b,
@@ -152,9 +136,9 @@ fn palette_dither(img_buf: [*]u8, width: c_int, height: c_int, palette_buf: [*]u
             const chosen_index = nearestPaletteIndex(adjusted, palette.space, color_space);
             const chosen = palette.rgb[chosen_index];
 
-            img_buf[idx] = floatToByte(chosen.r);
-            img_buf[idx + 1] = floatToByte(chosen.g);
-            img_buf[idx + 2] = floatToByte(chosen.b);
+            img_buf[idx] = color.floatToByte(chosen.r);
+            img_buf[idx + 1] = color.floatToByte(chosen.g);
+            img_buf[idx + 2] = color.floatToByte(chosen.b);
 
             const diff = Rgb{
                 .r = adjusted.r - chosen.r,
@@ -162,106 +146,36 @@ fn palette_dither(img_buf: [*]u8, width: c_int, height: c_int, palette_buf: [*]u
                 .b = adjusted.b - chosen.b,
             };
 
-            diffuseKernel(kernel, x, y, h, diff, &err_ring);
+            diffuseKernel(kernel, x, y, h, w, diff, &err_ring);
         }
     }
 
     return 0;
 }
 
-fn diffuseKernel(kernel: KernelKind, x: usize, y: usize, height: usize, diff: Rgb, err_ring: *ColorErrorRing) void {
-    switch (kernel) {
-        .atkinson => {
-            diffuseTo(err_ring.row(y), x, diff, 1, 8, 1);
-            diffuseTo(err_ring.row(y), x, diff, 2, 8, 1);
-            if (y + 1 < height) {
-                const next = err_ring.row(y + 1);
-                diffuseSigned(next, x, diff, -1, 8, 1);
-                diffuseSigned(next, x, diff, 0, 8, 1);
-                diffuseSigned(next, x, diff, 1, 8, 1);
-            }
-            if (y + 2 < height) {
-                diffuseSigned(err_ring.row(y + 2), x, diff, 0, 8, 1);
-            }
-        },
-        .sierra2 => {
-            diffuseTo(err_ring.row(y), x, diff, 1, 16, 4);
-            diffuseTo(err_ring.row(y), x, diff, 2, 16, 3);
-            if (y + 1 < height) {
-                const next = err_ring.row(y + 1);
-                diffuseSigned(next, x, diff, -2, 16, 1);
-                diffuseSigned(next, x, diff, -1, 16, 2);
-                diffuseSigned(next, x, diff, 0, 16, 3);
-                diffuseSigned(next, x, diff, 1, 16, 2);
-                diffuseSigned(next, x, diff, 2, 16, 1);
-            }
-        },
-        .sierra3 => {
-            diffuseTo(err_ring.row(y), x, diff, 1, 32, 5);
-            diffuseTo(err_ring.row(y), x, diff, 2, 32, 3);
-            if (y + 1 < height) {
-                const next = err_ring.row(y + 1);
-                diffuseSigned(next, x, diff, -2, 32, 2);
-                diffuseSigned(next, x, diff, -1, 32, 4);
-                diffuseSigned(next, x, diff, 0, 32, 5);
-                diffuseSigned(next, x, diff, 1, 32, 4);
-                diffuseSigned(next, x, diff, 2, 32, 2);
-            }
-            if (y + 2 < height) {
-                const next2 = err_ring.row(y + 2);
-                diffuseSigned(next2, x, diff, -1, 32, 2);
-                diffuseSigned(next2, x, diff, 0, 32, 3);
-                diffuseSigned(next2, x, diff, 1, 32, 2);
-            }
-        },
-        .stucki => {
-            diffuseTo(err_ring.row(y), x, diff, 1, 42, 8);
-            diffuseTo(err_ring.row(y), x, diff, 2, 42, 4);
-            if (y + 1 < height) {
-                const next = err_ring.row(y + 1);
-                diffuseSigned(next, x, diff, -2, 42, 2);
-                diffuseSigned(next, x, diff, -1, 42, 4);
-                diffuseSigned(next, x, diff, 0, 42, 8);
-                diffuseSigned(next, x, diff, 1, 42, 4);
-                diffuseSigned(next, x, diff, 2, 42, 2);
-            }
-            if (y + 2 < height) {
-                const next2 = err_ring.row(y + 2);
-                diffuseSigned(next2, x, diff, -2, 42, 1);
-                diffuseSigned(next2, x, diff, -1, 42, 2);
-                diffuseSigned(next2, x, diff, 0, 42, 4);
-                diffuseSigned(next2, x, diff, 1, 42, 2);
-                diffuseSigned(next2, x, diff, 2, 42, 1);
-            }
-        },
-        .burkes => {
-            diffuseTo(err_ring.row(y), x, diff, 1, 32, 8);
-            diffuseTo(err_ring.row(y), x, diff, 2, 32, 4);
-            if (y + 1 < height) {
-                const next = err_ring.row(y + 1);
-                diffuseSigned(next, x, diff, -2, 32, 2);
-                diffuseSigned(next, x, diff, -1, 32, 4);
-                diffuseSigned(next, x, diff, 0, 32, 8);
-                diffuseSigned(next, x, diff, 1, 32, 4);
-                diffuseSigned(next, x, diff, 2, 32, 2);
-            }
-        },
+fn diffuseKernel(kernel: Kernel, x: usize, y: usize, height: usize, width: usize, diff: Rgb, err_ring: *ColorErrorRing) void {
+    const divisor = @as(f32, @floatFromInt(kernel_defs.divisor(kernel)));
+    for (kernel_defs.steps(kernel)) |step| {
+        applyStep(step, x, y, width, height, diff, divisor, err_ring);
     }
 }
 
-fn diffuseTo(row: []Rgb, x: usize, diff: Rgb, positive_dx: usize, divisor: comptime_float, weight: comptime_float) void {
-    if (x + positive_dx >= row.len) {
+fn applyStep(step: DiffusionStep, x: usize, y: usize, width: usize, height: usize, diff: Rgb, divisor: f32, err_ring: *ColorErrorRing) void {
+    const target_y = y + step.dy;
+    if (target_y >= height) {
         return;
     }
-    addScaledError(&row[x + positive_dx], diff, weight / divisor);
-}
 
-fn diffuseSigned(row: []Rgb, x: usize, diff: Rgb, dx: isize, divisor: comptime_float, weight: comptime_float) void {
-    const shifted = @as(isize, @intCast(x)) + dx;
-    if (shifted < 0 or shifted >= @as(isize, @intCast(row.len))) {
+    const shifted_x = @as(isize, @intCast(x)) + step.dx;
+    if (shifted_x < 0 or shifted_x >= @as(isize, @intCast(width))) {
         return;
     }
-    addScaledError(&row[@as(usize, @intCast(shifted))], diff, weight / divisor);
+
+    addScaledError(
+        &err_ring.row(target_y)[@as(usize, @intCast(shifted_x))],
+        diff,
+        @as(f32, @floatFromInt(step.weight)) / divisor,
+    );
 }
 
 fn addScaledError(target: *Rgb, diff: Rgb, factor: f32) void {
@@ -270,15 +184,8 @@ fn addScaledError(target: *Rgb, diff: Rgb, factor: f32) void {
     target.b += diff.b * factor;
 }
 
-fn kernelDepth(kernel: KernelKind) usize {
-    return switch (kernel) {
-        .atkinson, .sierra3, .stucki => 3,
-        .sierra2, .burkes => 2,
-    };
-}
-
 fn nearestPaletteIndex(rgb: Rgb, palette_space: []const WorkingColor, color_space: ColorSpace) usize {
-    const working = toWorkingColor(rgb, color_space);
+    const working = color.toWorkingColor(rgb, color_space);
 
     var best_index: usize = 0;
     var best_distance = distanceSquared(working, palette_space[0]);
@@ -294,37 +201,9 @@ fn nearestPaletteIndex(rgb: Rgb, palette_space: []const WorkingColor, color_spac
     return best_index;
 }
 
-fn toWorkingColor(rgb: Rgb, color_space: ColorSpace) WorkingColor {
-    return switch (color_space) {
-        .rgb => .{ .c0 = rgb.r, .c1 = rgb.g, .c2 = rgb.b },
-        .ycocg => rgbToYCoCg(rgb),
-    };
-}
-
-fn rgbToYCoCg(rgb: Rgb) WorkingColor {
-    const co = rgb.r - rgb.b;
-    const tmp = rgb.b + (co / 2.0);
-    const cg = rgb.g - tmp;
-    const y = tmp + (cg / 2.0);
-    return .{ .c0 = y, .c1 = co, .c2 = cg };
-}
-
 fn distanceSquared(lhs: WorkingColor, rhs: WorkingColor) f32 {
     const d0 = lhs.c0 - rhs.c0;
     const d1 = lhs.c1 - rhs.c1;
     const d2 = lhs.c2 - rhs.c2;
     return (d0 * d0) + (d1 * d1) + (d2 * d2);
-}
-
-fn clampRgb(rgb: Rgb) Rgb {
-    return .{
-        .r = std.math.clamp(rgb.r, 0.0, 255.0),
-        .g = std.math.clamp(rgb.g, 0.0, 255.0),
-        .b = std.math.clamp(rgb.b, 0.0, 255.0),
-    };
-}
-
-fn floatToByte(value: f32) u8 {
-    const clipped = std.math.clamp(value, 0.0, 255.0);
-    return @as(u8, @intFromFloat(@round(clipped)));
 }

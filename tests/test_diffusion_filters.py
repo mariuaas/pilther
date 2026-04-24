@@ -7,7 +7,7 @@ import numpy as np
 import pytest
 from PIL import Image
 
-from pilther import burkes, sierra2, sierra3, stucki
+from pilther import Algorithm, Quantizer, burkes, dither, sierra2, sierra3, stucki
 
 FilterFunc = Callable[[Image.Image], Image.Image]
 
@@ -165,3 +165,10 @@ def test_matches_reference_algorithm(
     expected = _reference_dither(inp, offsets, divisor)
     got = np.array(func(small_gray_image), dtype=np.uint8)
     assert np.array_equal(got, expected)
+
+
+def test_canonical_dispatcher_supports_threshold_quantization(small_gray_image: Image.Image) -> None:
+    out = dither(small_gray_image, algorithm=Algorithm.BURKES, quantizer=Quantizer.THRESHOLD)
+
+    assert out.mode == "L"
+    assert out.size == small_gray_image.size

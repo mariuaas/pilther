@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 from PIL import Image
 
-from pilther import atkinson_palette, burkes_palette, sierra2_palette, sierra3_palette, stucki_palette
+from pilther import Algorithm, ColorSpace, Quantizer, atkinson_palette, burkes_palette, dither, sierra2_palette, sierra3_palette, stucki_palette
 
 PALETTE_FILTERS = [
     atkinson_palette,
@@ -123,3 +123,16 @@ def test_palette_variant_matches_reference_on_tiny_rgb_palette_case(func) -> Non
             dtype=np.uint8,
         ),
     )
+
+
+def test_canonical_dispatcher_supports_palette_quantization(rgb_gradient_image: Image.Image) -> None:
+    out = dither(
+        rgb_gradient_image,
+        algorithm=Algorithm.ATKINSON,
+        quantizer=Quantizer.PALETTE,
+        palette_name="gray4",
+        color_space=ColorSpace.GRAYSCALE,
+    )
+
+    assert out.mode == "RGB"
+    assert out.size == rgb_gradient_image.size

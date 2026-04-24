@@ -35,7 +35,7 @@ def test_cli_supports_filter_selection(tmp_path) -> None:
     img.save(inp)
 
     proc = subprocess.run(
-        [sys.executable, "-m", "pilther.cli", "--filter", "stucki", str(inp), str(out)],
+        [sys.executable, "-m", "pilther.cli", "--algorithm", "stucki", str(inp), str(out)],
         capture_output=True,
         text=True,
     )
@@ -55,7 +55,7 @@ def test_cli_supports_bluenoise_selection(tmp_path) -> None:
     img.save(inp)
 
     proc = subprocess.run(
-        [sys.executable, "-m", "pilther.cli", "--filter", "bluenoise", str(inp), str(out)],
+        [sys.executable, "-m", "pilther.cli", "--quantizer", "bluenoise", str(inp), str(out)],
         capture_output=True,
         text=True,
     )
@@ -88,8 +88,10 @@ def test_cli_supports_palette_filter_with_named_palette(tmp_path) -> None:
             sys.executable,
             "-m",
             "pilther.cli",
-            "--filter",
-            "sierra2_palette",
+            "--algorithm",
+            "sierra2",
+            "--quantizer",
+            "palette",
             "--palette",
             "ega16",
             str(inp),
@@ -126,8 +128,10 @@ def test_cli_supports_palette_filter_with_extracted_palette(tmp_path) -> None:
             sys.executable,
             "-m",
             "pilther.cli",
-            "--filter",
-            "atkinson_palette",
+            "--algorithm",
+            "atkinson",
+            "--quantizer",
+            "palette",
             "--extract-colors",
             "4",
             "--palette-space",
@@ -157,10 +161,10 @@ def test_cli_fails_for_missing_input(tmp_path) -> None:
     assert "No such file" in proc.stderr or "cannot identify image file" in proc.stderr
 
 
-def test_cli_rejects_unknown_filter(tmp_path) -> None:
+def test_cli_rejects_unknown_algorithm(tmp_path) -> None:
     out = tmp_path / "out.png"
     proc = subprocess.run(
-        [sys.executable, "-m", "pilther.cli", "--filter", "unknown", str(tmp_path / "missing.png"), str(out)],
+        [sys.executable, "-m", "pilther.cli", "--algorithm", "unknown", str(tmp_path / "missing.png"), str(out)],
         capture_output=True,
         text=True,
     )
@@ -169,7 +173,7 @@ def test_cli_rejects_unknown_filter(tmp_path) -> None:
     assert "invalid choice" in proc.stderr
 
 
-def test_cli_rejects_palette_flags_for_binary_filters(tmp_path) -> None:
+def test_cli_rejects_palette_flags_for_threshold_quantization(tmp_path) -> None:
     inp = tmp_path / "in.png"
     out = tmp_path / "out.png"
 
@@ -181,7 +185,7 @@ def test_cli_rejects_palette_flags_for_binary_filters(tmp_path) -> None:
             sys.executable,
             "-m",
             "pilther.cli",
-            "--filter",
+            "--algorithm",
             "sierra2",
             "--palette",
             "gray4",
@@ -193,4 +197,4 @@ def test_cli_rejects_palette_flags_for_binary_filters(tmp_path) -> None:
     )
 
     assert proc.returncode != 0
-    assert "only valid for palette-aware filters" in proc.stderr
+    assert "only valid for palette quantization" in proc.stderr

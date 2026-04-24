@@ -11,6 +11,7 @@ from PIL import Image
 from ._native import NATIVE_LIBRARY_BASENAME, load_native_library
 
 _COLOR_SPACE_CODES = {
+    "grayscale": 2,
     "rgb": 0,
     "ycocg": 1,
 }

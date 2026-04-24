@@ -1,28 +1,24 @@
-const atkinson = @import("atkinson.zig");
-const burkes = @import("burkes.zig");
 const palette_diffusion = @import("palette_diffusion.zig");
-const sierra2 = @import("sierra2.zig");
-const sierra3 = @import("sierra3.zig");
-const stucki = @import("stucki.zig");
+const threshold_diffusion = @import("threshold_diffusion.zig");
 
 export fn atkinson_dither(buf: [*]u8, width: c_int, height: c_int) c_int {
-    return atkinson.atkinson_dither(buf, width, height);
+    return threshold_diffusion.atkinson_dither(buf, width, height);
 }
 
 export fn burkes_dither(buf: [*]u8, width: c_int, height: c_int) c_int {
-    return burkes.burkes_dither(buf, width, height);
+    return threshold_diffusion.burkes_dither(buf, width, height);
 }
 
 export fn sierra2_dither(buf: [*]u8, width: c_int, height: c_int) c_int {
-    return sierra2.sierra2_dither(buf, width, height);
+    return threshold_diffusion.sierra2_dither(buf, width, height);
 }
 
 export fn sierra3_dither(buf: [*]u8, width: c_int, height: c_int) c_int {
-    return sierra3.sierra3_dither(buf, width, height);
+    return threshold_diffusion.sierra3_dither(buf, width, height);
 }
 
 export fn stucki_dither(buf: [*]u8, width: c_int, height: c_int) c_int {
-    return stucki.stucki_dither(buf, width, height);
+    return threshold_diffusion.stucki_dither(buf, width, height);
 }
 
 export fn atkinson_palette_dither(img_buf: [*]u8, width: c_int, height: c_int, palette_buf: [*]u8, palette_colors: c_int, color_space: c_int) c_int {
