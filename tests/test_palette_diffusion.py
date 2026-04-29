@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 from PIL import Image
 
-from pilther import Algorithm, ColorSpace, Quantizer, atkinson_palette, burkes_palette, dither, sierra2_palette, sierra3_palette, stucki_palette
+from pilther import Algorithm, ColorSpace, Quantizer, atkinson_palette, burkes_palette, dither, get_kernel_spec, sierra2_palette, sierra3_palette, stucki_palette
 
 PALETTE_FILTERS = [
     atkinson_palette,
@@ -136,3 +136,17 @@ def test_canonical_dispatcher_supports_palette_quantization(rgb_gradient_image: 
 
     assert out.mode == "RGB"
     assert out.size == rgb_gradient_image.size
+
+
+def test_palette_quantization_accepts_kernel_spec(rgb_gradient_image: Image.Image) -> None:
+    expected = np.asarray(burkes_palette(rgb_gradient_image, palette_name="gray4"), dtype=np.uint8)
+
+    out = dither(
+        rgb_gradient_image,
+        kernel=get_kernel_spec(Algorithm.BURKES),
+        quantizer=Quantizer.PALETTE,
+        palette_name="gray4",
+        color_space=ColorSpace.GRAYSCALE,
+    )
+
+    assert np.array_equal(np.asarray(out, dtype=np.uint8), expected)

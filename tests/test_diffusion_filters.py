@@ -7,7 +7,7 @@ import numpy as np
 import pytest
 from PIL import Image
 
-from pilther import Algorithm, Quantizer, burkes, dither, sierra2, sierra3, stucki
+from pilther import Algorithm, KernelSpec, KernelStep, Quantizer, burkes, dither, get_kernel_spec, sierra2, sierra3, stucki
 
 FilterFunc = Callable[[Image.Image], Image.Image]
 
@@ -172,3 +172,79 @@ def test_canonical_dispatcher_supports_threshold_quantization(small_gray_image: 
 
     assert out.mode == "L"
     assert out.size == small_gray_image.size
+
+
+@pytest.mark.parametrize(
+    ("algorithm", "expected_steps", "expected_divisor", "expected_depth"),
+    [
+        (Algorithm.SIERRA3, FILTER_CASES[0][2], FILTER_CASES[0][3], 3),
+        (Algorithm.SIERRA2, FILTER_CASES[1][2], FILTER_CASES[1][3], 2),
+        (Algorithm.STUCKI, FILTER_CASES[2][2], FILTER_CASES[2][3], 3),
+        (Algorithm.BURKES, FILTER_CASES[3][2], FILTER_CASES[3][3], 2),
+    ],
+)
+def test_builtin_kernel_specs_match_reference_offsets(
+    algorithm: Algorithm,
+    expected_steps: list[tuple[int, int, int]],
+    expected_divisor: int,
+    expected_depth: int,
+) -> None:
+    spec = get_kernel_spec(algorithm)
+
+    assert spec.divisor == expected_divisor
+    assert spec.depth == expected_depth
+    assert spec.steps == tuple(KernelStep(dx=dx, dy=dy, weight=weight) for dx, dy, weight in expected_steps)
+
+
+def test_kernel_spec_ignores_past_weights() -> None:
+    spec = KernelSpec.from_centered_matrix(
+        (
+            (9, 8, 7),
+            (6, 5, 4),
+            (3, 2, 1),
+        ),
+        divisor=7,
+    )
+
+    assert spec.steps == (
+        KernelStep(dx=1, dy=0, weight=4),
+        KernelStep(dx=-1, dy=1, weight=3),
+        KernelStep(dx=0, dy=1, weight=2),
+        KernelStep(dx=1, dy=1, weight=1),
+    )
+    assert spec.depth == 2
+
+
+def test_dither_accepts_builtin_kernel_spec(small_gray_image: Image.Image) -> None:
+    expected = np.array(burkes(small_gray_image), dtype=np.uint8)
+
+    out = dither(small_gray_image, kernel=get_kernel_spec(Algorithm.BURKES))
+
+    assert np.array_equal(np.array(out, dtype=np.uint8), expected)
+
+
+def test_dither_accepts_centered_matrix_and_default_divisor(small_gray_image: Image.Image) -> None:
+    spec = get_kernel_spec(Algorithm.SIERRA2)
+
+    out = dither(small_gray_image, kernel=np.array(spec.matrix, dtype=np.int16))
+
+    assert np.array_equal(np.array(out, dtype=np.uint8), np.array(sierra2(small_gray_image), dtype=np.uint8))
+
+
+@pytest.mark.parametrize(
+    ("matrix", "divisor", "match"),
+    [
+        (((0, 1), (1, 0)), 8, "odd number of rows|odd number of columns"),
+        (((0, 0, 0), (0, 0, 0)), 8, "odd number of rows"),
+        (((0, 0, 0),), 0, "divisor must be positive"),
+        (((0, 0, 0), (0, 0, 0), (0, 0, 0)), 8, "at least one non-zero future weight"),
+    ],
+)
+def test_kernel_spec_rejects_invalid_centered_matrices(matrix, divisor: int, match: str) -> None:
+    with pytest.raises(ValueError, match=match):
+        KernelSpec.from_centered_matrix(matrix, divisor=divisor)
+
+
+def test_dither_requires_exactly_one_kernel_selector(small_gray_image: Image.Image) -> None:
+    with pytest.raises(ValueError, match="exactly one"):
+        dither(small_gray_image, algorithm=Algorithm.BURKES, kernel=get_kernel_spec(Algorithm.BURKES))

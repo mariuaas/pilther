@@ -89,7 +89,11 @@ class build_py(_build_py):
                 legacy_file.unlink()
 
         latest_src_mtime = max(src_file.stat().st_mtime for src_file in src_files)
-        if out_file.exists() and out_file.stat().st_mtime >= latest_src_mtime:
+        if (
+            out_file.exists()
+            and out_file.stat().st_size > 0
+            and out_file.stat().st_mtime >= latest_src_mtime
+        ):
             return
 
         cmd = [

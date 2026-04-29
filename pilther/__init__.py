@@ -4,12 +4,15 @@ from .bluenoise import bluenoise
 from .colorspace import ColorSpace
 from .dither import (
 	Algorithm,
+	KernelSpec,
+	KernelStep,
 	Quantizer,
 	atkinson,
 	atkinson_palette,
 	burkes,
 	burkes_palette,
 	dither,
+	get_kernel_spec,
 	sierra2,
 	sierra2_palette,
 	sierra3,
@@ -29,6 +32,8 @@ from .palette import (
 __all__ = [
 	"Palette",
 	"Algorithm",
+	"KernelSpec",
+	"KernelStep",
 	"ColorSpace",
 	"Quantizer",
 	"atkinson",
@@ -38,6 +43,7 @@ __all__ = [
 	"burkes_palette",
 	"dither",
 	"extract_palette",
+	"get_kernel_spec",
 	"get_named_palette",
 	"list_named_palettes",
 	"normalize_palette",

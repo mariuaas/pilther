@@ -13,6 +13,7 @@ This alpha release provides these filters:
 The canonical diffusion API is organized by kernel plus quantizer:
 
 - Kernels: `pilther.Algorithm`
+- Kernel specs: `pilther.KernelSpec`
 - Quantizers: `pilther.Quantizer`
 - Color spaces: `pilther.ColorSpace`
 - Dispatcher: `pilther.dither(...)`
@@ -26,6 +27,8 @@ The Python API also includes palette utilities for extraction and normalization:
 - Named grayscale and color palettes (`pilther.get_named_palette`, `pilther.list_named_palettes`)
 
 Built-in palette names include grayscale ramps such as `gray4` and `gray32`, plus color presets such as `cga4`, `gameboy4`, `ega16`, `ansi16`, `web216`, and `term256`.
+
+Built-in diffusion kernels are also exposed as centered odd matrix specs via `pilther.get_kernel_spec(...)`, and custom centered matrices can be compiled and validated with `pilther.KernelSpec.from_centered_matrix(...)`.
 
 ## Status
 
@@ -71,11 +74,20 @@ uv pip install -e .[dev]
 
 ```python
 from PIL import Image
-from pilther import Algorithm, ColorSpace, Quantizer, dither, extract_palette
+from pilther import Algorithm, ColorSpace, KernelSpec, Quantizer, dither, extract_palette, get_kernel_spec
 
 img = Image.open("input.jpg")
 out = dither(img, algorithm=Algorithm.ATKINSON)
 palette = extract_palette(img, 8, method="median_cut", space=ColorSpace.RGB)
+burkes = get_kernel_spec(Algorithm.BURKES)
+custom = KernelSpec.from_centered_matrix(
+	(
+		(0, 0, 0),
+		(0, 0, 7),
+		(3, 5, 1),
+	),
+	divisor=16,
+)
 sierra = dither(
 	img,
 	algorithm=Algorithm.SIERRA2,

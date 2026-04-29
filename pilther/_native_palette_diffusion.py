@@ -33,6 +33,26 @@ def load_configured_palette_library(symbol_name: str) -> ctypes.CDLL:
     return lib
 
 
+@lru_cache(maxsize=None)
+def load_configured_generic_palette_library(symbol_name: str) -> ctypes.CDLL:
+    lib = load_native_library(NATIVE_LIBRARY_BASENAME)
+    dither = getattr(lib, symbol_name)
+    dither.argtypes = [
+        ctypes.POINTER(ctypes.c_uint8),
+        ctypes.c_int,
+        ctypes.c_int,
+        ctypes.POINTER(ctypes.c_uint8),
+        ctypes.c_int,
+        ctypes.c_int,
+        ctypes.POINTER(ctypes.c_int16),
+        ctypes.c_int,
+        ctypes.c_int,
+        ctypes.c_int,
+    ]
+    dither.restype = ctypes.c_int
+    return lib
+
+
 def make_native_palette_lib(symbol_name: str):
     @lru_cache(maxsize=None)
     def _native_lib() -> ctypes.CDLL:
@@ -67,6 +87,48 @@ def run_native_palette_dither(
             2: f"Native {filter_label} palette dithering failed: invalid image dimensions.",
             3: f"Native {filter_label} palette dithering failed: invalid palette.",
             4: f"Native {filter_label} palette dithering failed: invalid color space.",
+        }.get(status, f"Native {filter_label} palette dithering failed with error code {status}.")
+        raise RuntimeError(msg)
+
+    return Image.fromarray(buf, mode="RGB")
+
+
+def run_native_kernel_palette_dither(
+    image: Image.Image,
+    palette: np.ndarray,
+    steps: np.ndarray,
+    *,
+    divisor: int,
+    depth: int,
+    palette_space: str,
+    symbol_name: str = "generic_palette_dither",
+    filter_label: str = "custom kernel",
+) -> Image.Image:
+    buf = np.ascontiguousarray(np.asarray(image.convert("RGB"), dtype=np.uint8))
+    palette_buf = np.ascontiguousarray(np.asarray(palette, dtype=np.uint8))
+    steps_buf = np.ascontiguousarray(np.asarray(steps, dtype=np.int16))
+    height, width, _ = buf.shape
+
+    lib = load_configured_generic_palette_library(symbol_name)
+    status = getattr(lib, symbol_name)(
+        buf.ctypes.data_as(ctypes.POINTER(ctypes.c_uint8)),
+        width,
+        height,
+        palette_buf.ctypes.data_as(ctypes.POINTER(ctypes.c_uint8)),
+        palette_buf.shape[0],
+        _COLOR_SPACE_CODES[palette_space],
+        steps_buf.ctypes.data_as(ctypes.POINTER(ctypes.c_int16)),
+        steps_buf.shape[0] // 3,
+        divisor,
+        depth,
+    )
+    if status != 0:
+        msg = {
+            1: f"Native {filter_label} palette dithering failed: allocation error.",
+            2: f"Native {filter_label} palette dithering failed: invalid image dimensions.",
+            3: f"Native {filter_label} palette dithering failed: invalid palette.",
+            4: f"Native {filter_label} palette dithering failed: invalid color space.",
+            5: f"Native {filter_label} palette dithering failed: invalid kernel.",
         }.get(status, f"Native {filter_label} palette dithering failed with error code {status}.")
         raise RuntimeError(msg)
 
